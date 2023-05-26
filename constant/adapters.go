@@ -104,6 +104,7 @@ type DelayHistory struct {
 	Time      time.Time `json:"time"`
 	Delay     uint16    `json:"delay"`
 	MeanDelay uint16    `json:"meanDelay"`
+	URL       string    `json:"url"`
 }
 
 type Proxy interface {

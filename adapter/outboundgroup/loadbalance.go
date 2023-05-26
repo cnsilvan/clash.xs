@@ -161,7 +161,7 @@ func (lb *LoadBalance) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(map[string]any{
 		"type": lb.Type().String(),
-		"all":  all,
+		"all":  all, "url": lb.url,
 	})
 }
 

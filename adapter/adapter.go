@@ -29,22 +29,14 @@ type Proxy struct {
 
 // Alive implements C.Proxy
 func (p *Proxy) Alive(url string) bool {
-	//if url == "" {
-	//	for _, a := range p.alive {
-	//		if a.Load() {
-	//			return true
-	//		}
-	//	}
-	//	return false
-	//} else {
-	//	if v, ok := p.alive[url]; ok {
-	//		return v.Load()
-	//	}
-	//	return false
-	//}
 	if url == "" {
-		aliveB := false
+		aliveB := true
+		init := true
 		p.alive.Range(func(key, value any) bool {
+			if init {
+				init = false
+				aliveB = false
+			}
 			a := value.(*atomic.Bool)
 			if a.Load() {
 				aliveB = true
@@ -57,14 +49,12 @@ func (p *Proxy) Alive(url string) bool {
 		if v, ok := p.alive.Load(url); ok {
 			return v.(*atomic.Bool).Load()
 		}
-		return false
+		return true
 	}
 }
 func (p *Proxy) StoreAlive(url string, alive bool) {
-	if v, ok := p.alive.Load(url); ok {
+	if v, ok := p.alive.LoadOrStore(url, atomic.NewBool(alive)); ok {
 		v.(*atomic.Bool).Store(alive)
-	} else {
-		p.alive.Store(url, atomic.NewBool(alive))
 	}
 }
 
@@ -104,35 +94,34 @@ func (p *Proxy) DelayHistories() map[string][]C.DelayHistory {
 	hs := make(map[string][]C.DelayHistory)
 	p.history.Range(func(key, value any) bool {
 		k := key.(string)
-		queue := value.(*queue.Queue).Copy()
-		histories := []C.DelayHistory{}
-		for _, item := range queue {
+		q := value.(*queue.Queue).Copy()
+		var histories []C.DelayHistory
+		for _, item := range q {
 			histories = append(histories, item.(C.DelayHistory))
 		}
 		hs[k] = histories
 		return true
 	})
-	//for k, _ := range p.history {
-	//	queue := p.history[k].Copy()
-	//	histories := []C.DelayHistory{}
-	//	for _, item := range queue {
-	//		histories = append(histories, item.(C.DelayHistory))
-	//	}
-	//	hs[k] = histories
-	//}
 	return hs
+}
+func (p *Proxy) FlatDelayHistories() []C.DelayHistory {
+	hs := p.DelayHistories()
+	hss := make([]C.DelayHistory, 0)
+	for _, histories := range hs {
+		hss = append(hss, histories...)
+	}
+	return hss
 }
 
 // DelayHistory implements C.Proxy
 func (p *Proxy) DelayHistory(url string) []C.DelayHistory {
-	histories := []C.DelayHistory{}
+	histories := make([]C.DelayHistory, 0)
 	if v, ok := p.history.Load(url); ok {
-		queue := v.(*queue.Queue).Copy()
-		for _, item := range queue {
+		q := v.(*queue.Queue).Copy()
+		for _, item := range q {
 			histories = append(histories, item.(C.DelayHistory))
 		}
 	}
-
 	return histories
 }
 
@@ -146,9 +135,9 @@ func (p *Proxy) LastDelay(url string) (delay uint16) {
 	var last any
 	if v, ok := p.history.Load(url); ok {
 		last = v.(*queue.Queue).Last()
-		if last == nil {
-			return max
-		}
+	}
+	if last == nil {
+		return max
 	}
 	history := last.(C.DelayHistory)
 	if history.Delay == 0 {
@@ -163,10 +152,11 @@ func (p *Proxy) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return inner, err
 	}
-
 	mapping := map[string]any{}
 	json.Unmarshal(inner, &mapping)
-	mapping["history"] = p.DelayHistories()
+	//mapping["history"] = p.DelayHistory(url)
+	mapping["history"] = p.FlatDelayHistories()
+	mapping["histories"] = p.DelayHistories()
 	mapping["name"] = p.Name()
 	mapping["udp"] = p.SupportUDP()
 	return json.Marshal(mapping)
@@ -178,12 +168,14 @@ func (p *Proxy) URLTest(ctx context.Context, url string) (delay, meanDelay uint1
 	defer func() {
 		p.StoreAlive(url, err == nil)
 		//p.alive[url].Store(err == nil)
-		record := C.DelayHistory{Time: time.Now()}
+		record := C.DelayHistory{Time: time.Now(), URL: url}
 		if err == nil {
 			record.Delay = delay
 			record.MeanDelay = meanDelay
 		}
-		if v, ok := p.history.Load(url); ok {
+		qu := queue.New(10)
+		qu.Put(record)
+		if v, ok := p.history.LoadOrStore(url, qu); ok {
 			q := v.(*queue.Queue)
 			q.Put(record)
 			if q.Len() > 10 {
@@ -249,8 +241,8 @@ func (p *Proxy) URLTest(ctx context.Context, url string) (delay, meanDelay uint1
 
 func NewProxy(adapter C.ProxyAdapter) *Proxy {
 	p := &Proxy{ProxyAdapter: adapter}
-	p.history.Store(DefaultUrl, queue.New(10))
-	p.alive.Store(DefaultUrl, atomic.NewBool(true))
+	//p.history.Store(DefaultUrl, queue.New(10))
+	//p.alive.Store(DefaultUrl, atomic.NewBool(true))
 	//history := map[string]*queue.Queue{DefaultUrl: queue.New(10)}
 	//alive := map[string]*atomic.Bool{DefaultUrl: atomic.NewBool(true)}
 	return p

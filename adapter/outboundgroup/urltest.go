@@ -122,6 +122,7 @@ func (u *URLTest) MarshalJSON() ([]byte, error) {
 		"type": u.Type().String(),
 		"now":  u.Now(),
 		"all":  all,
+		"url":  u.url,
 	})
 }
 

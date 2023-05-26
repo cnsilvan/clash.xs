@@ -64,6 +64,7 @@ func (f *Fallback) MarshalJSON() ([]byte, error) {
 		"type": f.Type().String(),
 		"now":  f.Now(),
 		"all":  all,
+		"url":  f.url,
 	})
 }
 
