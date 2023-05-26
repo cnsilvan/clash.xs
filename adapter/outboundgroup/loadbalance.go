@@ -25,6 +25,7 @@ type LoadBalance struct {
 	single     *singledo.Single
 	providers  []provider.ProxyProvider
 	strategyFn strategyFn
+	url        string
 }
 
 var errStrategy = errors.New("unsupported strategy")
@@ -98,14 +99,14 @@ func (lb *LoadBalance) SupportUDP() bool {
 	return !lb.disableUDP
 }
 
-func strategyRoundRobin() strategyFn {
+func strategyRoundRobin(url string) strategyFn {
 	idx := 0
 	return func(proxies []C.Proxy, metadata *C.Metadata) C.Proxy {
 		length := len(proxies)
 		for i := 0; i < length; i++ {
 			idx = (idx + 1) % length
 			proxy := proxies[idx]
-			if proxy.Alive() {
+			if proxy.Alive(url) {
 				return proxy
 			}
 		}
@@ -114,7 +115,7 @@ func strategyRoundRobin() strategyFn {
 	}
 }
 
-func strategyConsistentHashing() strategyFn {
+func strategyConsistentHashing(url string) strategyFn {
 	maxRetry := 5
 	return func(proxies []C.Proxy, metadata *C.Metadata) C.Proxy {
 		key := uint64(murmur3.Sum32([]byte(getKey(metadata))))
@@ -122,14 +123,14 @@ func strategyConsistentHashing() strategyFn {
 		for i := 0; i < maxRetry; i, key = i+1, key+1 {
 			idx := jumpHash(key, buckets)
 			proxy := proxies[idx]
-			if proxy.Alive() {
+			if proxy.Alive(url) {
 				return proxy
 			}
 		}
 
 		// when availability is poor, traverse the entire list to get the available nodes
 		for _, proxy := range proxies {
-			if proxy.Alive() {
+			if proxy.Alive(url) {
 				return proxy
 			}
 		}
@@ -168,9 +169,9 @@ func NewLoadBalance(option *GroupCommonOption, providers []provider.ProxyProvide
 	var strategyFn strategyFn
 	switch strategy {
 	case "consistent-hashing":
-		strategyFn = strategyConsistentHashing()
+		strategyFn = strategyConsistentHashing(option.URL)
 	case "round-robin":
-		strategyFn = strategyRoundRobin()
+		strategyFn = strategyRoundRobin(option.URL)
 	default:
 		return nil, fmt.Errorf("%w: %s", errStrategy, strategy)
 	}
@@ -185,5 +186,6 @@ func NewLoadBalance(option *GroupCommonOption, providers []provider.ProxyProvide
 		providers:  providers,
 		strategyFn: strategyFn,
 		disableUDP: option.DisableUDP,
+		url:        option.URL,
 	}, nil
 }

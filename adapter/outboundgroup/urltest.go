@@ -28,6 +28,7 @@ type URLTest struct {
 	single     *singledo.Single
 	fastSingle *singledo.Single
 	providers  []provider.ProxyProvider
+	url        string
 }
 
 func (u *URLTest) Now() string {
@@ -69,7 +70,7 @@ func (u *URLTest) fast(touch bool) C.Proxy {
 	elm, _, shared := u.fastSingle.Do(func() (any, error) {
 		proxies := u.proxies(touch)
 		fast := proxies[0]
-		min := fast.LastDelay()
+		min := fast.LastDelay(u.url)
 		fastNotExist := true
 
 		for _, proxy := range proxies[1:] {
@@ -77,11 +78,11 @@ func (u *URLTest) fast(touch bool) C.Proxy {
 				fastNotExist = false
 			}
 
-			if !proxy.Alive() {
+			if !proxy.Alive(u.url) {
 				continue
 			}
 
-			delay := proxy.LastDelay()
+			delay := proxy.LastDelay(u.url)
 			if delay < min {
 				fast = proxy
 				min = delay
@@ -89,7 +90,7 @@ func (u *URLTest) fast(touch bool) C.Proxy {
 		}
 
 		// tolerance
-		if u.fastNode == nil || fastNotExist || !u.fastNode.Alive() || u.fastNode.LastDelay() > fast.LastDelay()+u.tolerance {
+		if u.fastNode == nil || fastNotExist || !u.fastNode.Alive(u.url) || u.fastNode.LastDelay(u.url) > fast.LastDelay(u.url)+u.tolerance {
 			u.fastNode = fast
 		}
 
@@ -147,11 +148,11 @@ func NewURLTest(option *GroupCommonOption, providers []provider.ProxyProvider, o
 		fastSingle: singledo.NewSingle(time.Second * 10),
 		providers:  providers,
 		disableUDP: option.DisableUDP,
+		url:        option.URL,
 	}
 
 	for _, option := range options {
 		option(urlTest)
 	}
-
 	return urlTest
 }

@@ -108,9 +108,11 @@ type DelayHistory struct {
 
 type Proxy interface {
 	ProxyAdapter
-	Alive() bool
-	DelayHistory() []DelayHistory
-	LastDelay() uint16
+	Alive(url string) bool
+	StoreAlive(url string, alive bool)
+	DelayHistory(url string) []DelayHistory
+	DelayHistories() map[string][]DelayHistory
+	LastDelay(url string) uint16
 	URLTest(ctx context.Context, url string) (uint16, uint16, error)
 
 	// Deprecated: use DialContext instead.

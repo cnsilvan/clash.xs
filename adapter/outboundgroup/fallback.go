@@ -16,6 +16,7 @@ type Fallback struct {
 	disableUDP bool
 	single     *singledo.Single
 	providers  []provider.ProxyProvider
+	url        string
 }
 
 func (f *Fallback) Now() string {
@@ -83,7 +84,7 @@ func (f *Fallback) proxies(touch bool) []C.Proxy {
 func (f *Fallback) findAliveProxy(touch bool) C.Proxy {
 	proxies := f.proxies(touch)
 	for _, proxy := range proxies {
-		if proxy.Alive() {
+		if proxy.Alive(f.url) {
 			return proxy
 		}
 	}
@@ -102,5 +103,6 @@ func NewFallback(option *GroupCommonOption, providers []provider.ProxyProvider) 
 		single:     singledo.NewSingle(defaultGetProxiesDuration),
 		providers:  providers,
 		disableUDP: option.DisableUDP,
+		url:        option.URL,
 	}
 }

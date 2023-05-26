@@ -69,6 +69,7 @@ type Metadata struct {
 	SrcPort      string  `json:"sourcePort"`
 	DstPort      string  `json:"destinationPort"`
 	Host         string  `json:"host"`
+	Url          string  `json:"url"`
 	DNSMode      DNSMode `json:"dnsMode"`
 	ProcessPath  string  `json:"processPath"`
 	SpecialProxy string  `json:"specialProxy"`
