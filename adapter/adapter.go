@@ -17,7 +17,7 @@ import (
 	"go.uber.org/atomic"
 )
 
-const DefaultUrl = "_clash"
+const DefaultUrl = "_clash_"
 
 type Proxy struct {
 	C.ProxyAdapter
