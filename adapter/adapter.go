@@ -17,14 +17,10 @@ import (
 	"go.uber.org/atomic"
 )
 
-const DefaultUrl = "_clash_"
-
 type Proxy struct {
 	C.ProxyAdapter
 	history sync.Map
 	alive   sync.Map
-	//history map[string]*queue.Queue
-	//alive   map[string]*atomic.Bool
 }
 
 // Alive implements C.Proxy
@@ -152,7 +148,6 @@ func (p *Proxy) MarshalJSON() ([]byte, error) {
 	}
 	mapping := map[string]any{}
 	json.Unmarshal(inner, &mapping)
-	//mapping["history"] = p.DelayHistory(url)
 	mapping["history"] = p.FlatDelayHistories()
 	mapping["histories"] = p.DelayHistories()
 	mapping["name"] = p.Name()
