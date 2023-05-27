@@ -30,21 +30,21 @@ type Proxy struct {
 // Alive implements C.Proxy
 func (p *Proxy) Alive(url string) bool {
 	if url == "" {
-		aliveB := true
+		alive := true
 		init := true
 		p.alive.Range(func(key, value any) bool {
 			if init {
 				init = false
-				aliveB = false
+				alive = false
 			}
 			a := value.(*atomic.Bool)
 			if a.Load() {
-				aliveB = true
+				alive = true
 				return false
 			}
 			return true
 		})
-		return aliveB
+		return alive
 	} else {
 		if v, ok := p.alive.Load(url); ok {
 			return v.(*atomic.Bool).Load()
@@ -68,7 +68,6 @@ func (p *Proxy) Dial(metadata *C.Metadata) (C.Conn, error) {
 // DialContext implements C.ProxyAdapter
 func (p *Proxy) DialContext(ctx context.Context, metadata *C.Metadata, opts ...dialer.Option) (C.Conn, error) {
 	conn, err := p.ProxyAdapter.DialContext(ctx, metadata, opts...)
-	//p.alive[metadata.Url].Store(err == nil)
 	p.StoreAlive(metadata.Url, err == nil)
 	return conn, err
 }
@@ -83,7 +82,6 @@ func (p *Proxy) DialUDP(metadata *C.Metadata) (C.PacketConn, error) {
 // ListenPacketContext implements C.ProxyAdapter
 func (p *Proxy) ListenPacketContext(ctx context.Context, metadata *C.Metadata, opts ...dialer.Option) (C.PacketConn, error) {
 	pc, err := p.ProxyAdapter.ListenPacketContext(ctx, metadata, opts...)
-	//p.alive[metadata.Url].Store(err == nil)
 	p.StoreAlive(metadata.Url, err == nil)
 	return pc, err
 }
@@ -167,7 +165,6 @@ func (p *Proxy) MarshalJSON() ([]byte, error) {
 func (p *Proxy) URLTest(ctx context.Context, url string) (delay, meanDelay uint16, err error) {
 	defer func() {
 		p.StoreAlive(url, err == nil)
-		//p.alive[url].Store(err == nil)
 		record := C.DelayHistory{Time: time.Now(), URL: url}
 		if err == nil {
 			record.Delay = delay
@@ -241,10 +238,6 @@ func (p *Proxy) URLTest(ctx context.Context, url string) (delay, meanDelay uint1
 
 func NewProxy(adapter C.ProxyAdapter) *Proxy {
 	p := &Proxy{ProxyAdapter: adapter}
-	//p.history.Store(DefaultUrl, queue.New(10))
-	//p.alive.Store(DefaultUrl, atomic.NewBool(true))
-	//history := map[string]*queue.Queue{DefaultUrl: queue.New(10)}
-	//alive := map[string]*atomic.Bool{DefaultUrl: atomic.NewBool(true)}
 	return p
 }
 func urlToMetadata(rawURL string) (addr C.Metadata, err error) {
