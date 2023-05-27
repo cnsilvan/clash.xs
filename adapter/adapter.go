@@ -26,21 +26,17 @@ type Proxy struct {
 // Alive implements C.Proxy
 func (p *Proxy) Alive(url string) bool {
 	if url == "" {
-		alive := true
-		init := true
+		times := 0
 		p.alive.Range(func(key, value any) bool {
-			if init {
-				init = false
-				alive = false
-			}
+			times = times + 1
 			a := value.(*atomic.Bool)
 			if a.Load() {
-				alive = true
+				times = 0
 				return false
 			}
 			return true
 		})
-		return alive
+		return times == 0
 	} else {
 		if v, ok := p.alive.Load(url); ok {
 			return v.(*atomic.Bool).Load()
